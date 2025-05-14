@@ -8,6 +8,10 @@ from agents.editor_agent import EditorAgent
 from agents.reviewer_agent import ReviewerAgent
 from agents.server_agent import ServerAgent # Bu genel ServerAgent tanımı olacak
 
+
+from dotenv import load_dotenv
+load_dotenv()
+
 # helper_agents'ın agents klasörü altında olduğunu varsayıyoruz.
 # Eğer değilse, bu yolları kendi dosya yapınıza göre güncelleyin.
 # Örn: Proje ana dizinindeyse: from image_generator_agent import ImageGeneratorAgent
