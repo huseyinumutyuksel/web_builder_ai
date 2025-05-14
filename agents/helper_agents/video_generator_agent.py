@@ -1,7 +1,10 @@
-# agents/helper_agents/video_generator_agent.py
-from agents.base_agent import BaseAgent
 import os
+import subprocess
 import uuid
+import logging
+from agents.base_agent import BaseAgent
+
+logger = logging.getLogger(__name__)
 
 class VideoGeneratorAgent(BaseAgent):
     def __init__(self, name="Video Generator Agent"):
@@ -9,32 +12,34 @@ class VideoGeneratorAgent(BaseAgent):
         self.output_folder = "output/generated_videos"
         os.makedirs(self.output_folder, exist_ok=True)
 
-    def execute(self, task=None): # İmza güncellendi
-        """
-        Task (dict, optional):
-            - "prompt": (str) Video için metin istemi.
-            - "duration": (int) Saniye cinsinden süre.
-        Returns:
-            (list): Oluşturulan video dosyalarının yollarını içeren bir liste.
-        """
-        prompt = "Default Video Topic"
-        duration = 10 # saniye
+    def execute(self, task=None):
+        prompt = task.get("prompt", "Default Video Topic") if task else "Default Video Topic"
+        duration = task.get("duration", 10) if task else 10  # seconds
 
-        if task:
-            prompt = task.get("prompt", prompt)
-            duration = task.get("duration", duration)
-
-        print(f"{self.name}: Simulating video generation for prompt='{prompt}', duration={duration}s...")
+        logger.info(f"{self.name}: Generating video for '{prompt}' with duration {duration}s")
         
-        # Gerçek video oluşturma karmaşık olacaktır. Şimdilik placeholder.
-        filename = f"placeholder_video_{prompt.replace(' ','_')}_{uuid.uuid4().hex[:6]}.mp4"
-        filepath = os.path.join(self.output_folder, filename)
         try:
-            with open(filepath, "w") as f:
-                f.write(f"Placeholder video for: {prompt}\nDuration: {duration}s")
-            print(f"{self.name}: Placeholder video file created at {filepath}")
-            return [filepath] # Dosya yolunu döndür
-        except Exception as e:
-            print(f"{self.name}: Error creating placeholder video file: {e}")
-            # Alternatif olarak bir video URL'i döndürülebilir.
-            return ["sample_video_url.mp4"] # Örnek bir genel video linki
+            # Generate a unique filename
+            filename = f"video_{prompt.replace(' ', '_')}_{uuid.uuid4().hex[:6]}.mp4"
+            filepath = os.path.join(self.output_folder, filename)
+            
+            # FFmpeg command: Create a video with a black background and text
+            cmd = [
+                "ffmpeg",
+                "-f", "lavfi",
+                "-i", f"color=c=black:s=640x480:d={duration}",
+                "-vf", f"drawtext=text='{prompt}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2",
+                "-c:a", "aac",
+                "-strict", "experimental",
+                "-y",  # Overwrite output file if it exists
+                filepath
+            ]
+            subprocess.run(cmd, check=True, capture_output=True, text=True)
+            logger.info(f"{self.name}: Video saved to {filepath}")
+            return [filepath]
+        except subprocess.CalledProcessError as e:
+            logger.error(f"{self.name}: FFmpeg error: {e}", exc_info=True)
+            return ["Error: Video generation failed"]
+        except FileNotFoundError:
+            logger.error(f"{self.name}: FFmpeg not found. Please install FFmpeg.")
+            return ["Error: FFmpeg not installed"]
